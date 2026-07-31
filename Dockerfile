@@ -10,8 +10,9 @@ COPY pyproject.toml .
 RUN pip install --no-cache-dir -e ".[dev]"
 
 COPY src/ ./src/
-COPY data/sample_corpus.txt ./data/
-COPY data/index/ ./data/index/
+COPY data/ ./data/
+
+RUN mkdir -p data/index
 
 EXPOSE 8000
 
