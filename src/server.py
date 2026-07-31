@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import time
 from pathlib import Path
@@ -8,6 +9,7 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from contextlib import asynccontextmanager
+from fastapi.responses import StreamingResponse
 
 from src.pipeline import RAGPipeline
 
@@ -108,4 +110,48 @@ def query(request: QueryRequest):
         chunks_retrieved=response.chunks_retrieved,
         chunks_used=response.chunks_used,
         latency_ms=round(latency_ms, 2),
+    )
+
+
+@app.post("/query/stream")
+def query_stream(request: QueryRequest):
+    if pipeline is None or not pipeline.indexed:
+        raise HTTPException(status_code=503, detail="Pipeline not ready. Index not loaded.")
+
+    start = time.perf_counter()
+
+    def event_generator():
+        try:
+            hybrid_results = pipeline._hybrid.search(request.question)
+            reranked = pipeline._reranker.rerank(request.question, hybrid_results, top_k=request.top_k)
+            response = pipeline._generator.generate(request.question, reranked)
+
+            latency_ms = (time.perf_counter() - start) * 1000
+
+            payload = {
+                "answer": response.answer,
+                "sources": [
+                    {
+                        "chunk_id": s.chunk_id,
+                        "source_file": s.source_file,
+                        "text_preview": s.text_preview,
+                        "rerank_score": s.rerank_score,
+                    }
+                    for s in response.sources
+                ],
+                "chunks_retrieved": len(hybrid_results),
+                "chunks_used": len(reranked),
+                "latency_ms": round(latency_ms, 2),
+            }
+
+            yield f"data: {json.dumps(payload)}\n\n"
+            yield "event: done\ndata: {}\n\n"
+        except Exception as e:
+            logger.exception("Streaming error")
+            yield f"event: error\ndata: {json.dumps({'detail': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

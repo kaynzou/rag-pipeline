@@ -68,3 +68,9 @@ class TestServer:
         client = TestClient(app)
         response = client.post("/query", json={"question": "What is BM25?", "top_k": 2})
         assert response.status_code == 503
+
+    def test_query_stream_returns_event(self, mock_pipeline):
+        client = TestClient(app)
+        response = client.post("/query/stream", json={"question": "What is BM25?", "top_k": 2})
+        assert response.status_code == 200
+        assert "text/event-stream" in response.headers["content-type"]
