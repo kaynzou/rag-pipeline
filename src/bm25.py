@@ -1,11 +1,3 @@
-"""
-BM25 module for RAG pipeline.
-
-Implements the BM25 ranking function from scratch.
-BM25 is a probabilistic information retrieval model that scores
-documents based on term frequency saturation and inverse document frequency.
-"""
-
 from __future__ import annotations
 
 import math
@@ -17,7 +9,6 @@ from src.chunking import Chunk
 
 @dataclass
 class BM25Result:
-    """A single BM25 search result with score."""
     chunk_id: int
     text: str
     source: str
@@ -28,14 +19,6 @@ class BM25Result:
 
 
 class BM25Index:
-    """
-    BM25 index built over a corpus of chunks.
-
-    Computes per-document term frequencies, document frequencies,
-    and IDF scores. Scoring uses the standard BM25 formula with
-    parameters k1 and b.
-    """
-
     def __init__(
         self,
         k1: float = 1.2,
@@ -63,12 +46,6 @@ class BM25Index:
         return text.lower().split()
 
     def build(self, chunks: List[Chunk]) -> None:
-        """
-        Build the BM25 index from a list of chunks.
-
-        Args:
-            chunks: List of Chunk objects to index.
-        """
         self._chunks = chunks
         self._doc_tokens = []
         self._doc_freqs = []
@@ -105,16 +82,6 @@ class BM25Index:
         self._built = True
 
     def score(self, query_tokens: List[str], doc_idx: int) -> float:
-        """
-        Compute BM25 score for a query against a single document.
-
-        Args:
-            query_tokens: Tokenized query terms.
-            doc_idx: Index of the document in the corpus.
-
-        Returns:
-            BM25 score.
-        """
         if not self._built:
             raise RuntimeError("Index not built. Call build() first.")
 
@@ -135,16 +102,6 @@ class BM25Index:
         return score
 
     def search(self, query: str, top_k: int = 5) -> List[BM25Result]:
-        """
-        Search the index for the top_k most relevant chunks.
-
-        Args:
-            query: Raw query text.
-            top_k: Number of results to return.
-
-        Returns:
-            List of BM25Result sorted by descending score.
-        """
         if not self._built:
             raise RuntimeError("Index not built. Call build() first.")
 
@@ -182,20 +139,6 @@ def reciprocal_rank_fusion(
     dense_results: List[object],
     k: int = 60,
 ) -> List[dict]:
-    """
-    Merge BM25 and dense retrieval results using Reciprocal Rank Fusion.
-
-    RRF score for a document = sum over each ranked list of 1 / (k + rank)
-
-    Args:
-        bm25_results: BM25 results sorted by descending score.
-        dense_results: Dense results sorted by descending score.
-            Each must have a .chunk_id attribute.
-        k: RRF constant (default 60).
-
-    Returns:
-        List of dicts with chunk_id, rrf_score, and source scores.
-    """
     scores: Dict[int, float] = {}
 
     for rank, r in enumerate(bm25_results, 1):

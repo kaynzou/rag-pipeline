@@ -47,11 +47,36 @@ rag-pipeline/
 
 ## Quick Start
 
-```bash
-# Install dependencies
-pip install -e ".[dev]"
+### Option A: Run the API (backend only)
 
-# Run demos
+```bash
+pip install -e ".[dev]"
+uvicorn src.server:app --reload
+# Visit http://localhost:8000/docs
+```
+
+### Option B: Run with Docker (full stack)
+
+```bash
+docker compose up --build
+# API: http://localhost:8000/docs
+# Frontend: http://localhost:8501
+```
+
+### Option C: Run the Streamlit frontend
+
+```bash
+# Terminal 1: start API
+uvicorn src.server:app --reload
+
+# Terminal 2: start frontend
+pip install streamlit requests
+streamlit run app.py
+```
+
+### Run demos
+
+```bash
 python demo_chunking.py      # See text splitting
 python demo_embedding.py     # See vector embeddings
 python demo_vector_store.py  # See similarity search
@@ -59,13 +84,12 @@ python demo_bm25.py          # See keyword scoring
 python demo_hybrid_search.py # See hybrid fusion
 python demo_reranker.py      # See cross-encoder reranking
 python demo_generator.py     # See grounded generation
+```
 
-# Run tests
+### Run tests
+
+```bash
 pytest tests/ -v
-
-# Start API server
-uvicorn src.server:app --reload
-# Then visit http://localhost:8000/docs for interactive API docs
 ```
 
 ## Architecture
