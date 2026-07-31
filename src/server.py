@@ -54,11 +54,16 @@ pipeline: Optional[RAGPipeline] = None
 async def lifespan(app: FastAPI):
     global pipeline
     openai_key = os.environ.get("OPENAI_API_KEY")
-    pipeline = RAGPipeline(openai_api_key=openai_key)
-    index_dir = Path(__file__).parent.parent / "data" / "index"
-    if index_dir.exists():
-        pipeline.load(str(index_dir))
-        logger.info("Pipeline loaded from %s", index_dir)
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+    try:
+        pipeline = RAGPipeline(openai_api_key=openai_key, anthropic_api_key=anthropic_key)
+        index_dir = Path(__file__).parent.parent / "data" / "index"
+        if index_dir.exists():
+            pipeline.load(str(index_dir))
+            logger.info("Pipeline loaded from %s", index_dir)
+    except ImportError as e:
+        logger.warning("Pipeline not initialized: %s", e)
+        pipeline = None
     yield
     pipeline = None
 
