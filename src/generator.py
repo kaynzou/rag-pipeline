@@ -30,7 +30,7 @@ class Generator:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = "claude-3-haiku-20240307",
+        model: str = "gpt-4o-mini",
         max_tokens: int = 1024,
         temperature: float = 0.0,
     ) -> None:
@@ -88,17 +88,17 @@ Answer:"""
         system_prompt = self._build_system_prompt()
         user_prompt = self._build_user_prompt(query, chunks)
 
-        response = self._client.messages.create(
+        response = self._client.chat.completions.create(
             model=self._model,
-            system=system_prompt,
             messages=[
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
             max_tokens=self._max_tokens,
             temperature=self._temperature,
         )
 
-        answer = response.content[0].text.strip()
+        answer = response.choices[0].message.content.strip()
 
         sources = [
             Source(

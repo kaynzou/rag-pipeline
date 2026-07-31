@@ -86,6 +86,70 @@ def ready():
     return ReadyResponse(ready=pipeline is not None and pipeline.indexed, indexed=pipeline.indexed if pipeline else False)
 
 
+class IndexRequest(BaseModel):
+    source: str = "sample_corpus"
+
+
+class IndexResponse(BaseModel):
+    indexed: bool
+    message: str
+
+
+@app.post("/index", response_model=IndexResponse)
+def index_corpus(request: IndexRequest):
+    global pipeline
+    if pipeline is None:
+        raise HTTPException(status_code=503, detail="Pipeline not initialized.")
+
+    if pipeline.indexed:
+        return IndexResponse(indexed=True, message="Already indexed.")
+
+    corpus_path = Path(__file__).parent.parent / "data" / "sample_corpus.txt"
+    if not corpus_path.exists():
+        raise HTTPException(status_code=404, detail=f"Corpus not found at {corpus_path}")
+
+    try:
+        text = corpus_path.read_text(encoding="utf-8")
+        pipeline.index(text, source=request.source)
+        logger.info("Indexed corpus from %s", corpus_path)
+        return IndexResponse(indexed=True, message="Corpus indexed successfully.")
+    except Exception as e:
+        logger.exception("Indexing failed")
+        raise HTTPException(status_code=500, detail=f"Indexing failed: {e}")
+
+
+class IndexRequest(BaseModel):
+    source: str = "sample_corpus"
+
+
+class IndexResponse(BaseModel):
+    indexed: bool
+    message: str
+
+
+@app.post("/index", response_model=IndexResponse)
+def index_corpus(request: IndexRequest):
+    global pipeline
+    if pipeline is None:
+        raise HTTPException(status_code=503, detail="Pipeline not initialized.")
+
+    if pipeline.indexed:
+        return IndexResponse(indexed=True, message="Already indexed.")
+
+    corpus_path = Path(__file__).parent.parent / "data" / "sample_corpus.txt"
+    if not corpus_path.exists():
+        raise HTTPException(status_code=404, detail=f"Corpus not found at {corpus_path}")
+
+    try:
+        text = corpus_path.read_text(encoding="utf-8")
+        pipeline.index(text, source=request.source)
+        logger.info("Indexed corpus from %s", corpus_path)
+        return IndexResponse(indexed=True, message="Corpus indexed successfully.")
+    except Exception as e:
+        logger.exception("Indexing failed")
+        raise HTTPException(status_code=500, detail=f"Indexing failed: {e}")
+
+
 @app.post("/query", response_model=QueryResponse)
 def query(request: QueryRequest):
     if pipeline is None or not pipeline.indexed:
