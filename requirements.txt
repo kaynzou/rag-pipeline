@@ -1,0 +1,9 @@
+streamlit
+requests
+sentence-transformers
+fastapi
+uvicorn
+openai
+tiktoken
+numpy
+pytest

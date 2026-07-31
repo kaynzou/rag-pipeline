@@ -5,6 +5,7 @@ Connects to the FastAPI server and provides a chat interface
 for asking questions and seeing cited answers.
 """
 
+import os
 import requests
 import streamlit as st
 
@@ -20,8 +21,8 @@ st.markdown(
     "Answers are grounded in retrieved context with source citations."
 )
 
-API_URL = "http://localhost:8000/query"
-HEALTH_URL = "http://localhost:8000/ready"
+API_URL = os.environ.get("API_URL", "http://localhost:8000/query")
+HEALTH_URL = os.environ.get("HEALTH_URL", "http://localhost:8000/ready")
 
 
 @st.cache_data(ttl=5)

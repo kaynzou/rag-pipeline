@@ -84,12 +84,46 @@ python demo_bm25.py          # See keyword scoring
 python demo_hybrid_search.py # See hybrid fusion
 python demo_reranker.py      # See cross-encoder reranking
 python demo_generator.py     # See grounded generation
+python demo_full_pipeline.py # See end-to-end pipeline
 ```
 
 ### Run tests
 
 ```bash
 pytest tests/ -v
+```
+
+## Deployment
+
+### Deploy the FastAPI backend (Render)
+
+1. Push your code to GitHub
+2. Go to [render.com](https://render.com) → New → Web Service
+3. Connect your GitHub repo
+4. Settings:
+   - **Build Command**: `pip install -e ".[dev]"`
+   - **Start Command**: `uvicorn src.server:app --host 0.0.0.0 --port $PORT`
+   - **Plan**: Free
+5. Add environment variable: `OPENAI_API_KEY` = your key
+6. Deploy — you'll get a URL like `https://rag-pipeline-api.onrender.com`
+
+### Deploy the Streamlit frontend (Streamlit Community Cloud)
+
+1. Go to [share.streamlit.io](https://share.streamlit.io)
+2. Sign in with GitHub
+3. Click "New app" → select your repo
+4. Settings:
+   - **Main file path**: `app.py`
+   - **Python version**: 3.11
+5. Add environment variable:
+   - `API_URL` = your Render URL (e.g., `https://rag-pipeline-api.onrender.com/query`)
+   - `HEALTH_URL` = your Render URL (e.g., `https://rag-pipeline-api.onrender.com/ready`)
+6. Deploy — you'll get a URL like `https://rag-pipeline.streamlit.app`
+
+### One-command local deployment (Docker)
+
+```bash
+docker compose up --build
 ```
 
 ## Architecture
