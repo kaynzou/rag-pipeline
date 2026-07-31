@@ -7,11 +7,10 @@ from pathlib import Path
 from typing import List, Optional
 
 from src.chunking import TextSplitter, Chunk
-from src.embedding import LocalEmbeddingModel, OpenAIEmbeddingModel, EmbeddingPipeline
+from src.embedding import EmbeddingPipeline, OpenAIEmbeddingModel
 from src.bm25 import BM25Index
 from src.vector_store import VectorStore
 from src.hybrid_search import HybridSearch
-from src.reranker import CrossEncoderReranker
 from src.generator import Generator, RAGResponse
 
 
@@ -19,7 +18,6 @@ class RAGPipeline:
     def __init__(
         self,
         persist_dir: str = "data/index",
-        embedding_model: str = "local",
         openai_api_key: Optional[str] = None,
         anthropic_api_key: Optional[str] = None,
         claude_model: str = "claude-3-haiku-20240307",
@@ -36,7 +34,14 @@ class RAGPipeline:
         if self._openai_api_key:
             self._encoder = OpenAIEmbeddingModel(api_key=self._openai_api_key)
         else:
-            self._encoder = LocalEmbeddingModel()
+            try:
+                from src.embedding import LocalEmbeddingModel
+                self._encoder = LocalEmbeddingModel()
+            except ImportError:
+                raise ImportError(
+                    "No embedding model available. Either install sentence-transformers "
+                    "(`pip install -e '.[local]'`) or set OPENAI_API_KEY."
+                )
 
         self._pipeline = EmbeddingPipeline(model=self._encoder)
 
@@ -134,14 +139,23 @@ class RAGPipeline:
             raise RuntimeError("Pipeline not indexed. Call index() or load() first.")
 
         if self._reranker is None:
-            from src.reranker import CrossEncoderReranker
-            self._reranker = CrossEncoderReranker()
+            try:
+                from src.reranker import CrossEncoderReranker
+                self._reranker = CrossEncoderReranker()
+            except ImportError:
+                logger.warning("sentence-transformers not installed; skipping reranker.")
+                self._reranker = None
 
         if self._generator is None:
             self._generator = Generator(api_key=self._anthropic_api_key, model=self._claude_model)
 
         hybrid_results = self._hybrid.search(question)
-        reranked = self._reranker.rerank(question, hybrid_results, top_k=top_k)
+
+        if self._reranker is not None:
+            reranked = self._reranker.rerank(question, hybrid_results, top_k=top_k)
+        else:
+            reranked = hybrid_results[:top_k]
+
         response = self._generator.generate(question, reranked)
 
         response.chunks_retrieved = len(hybrid_results)

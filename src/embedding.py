@@ -110,7 +110,16 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 
 class EmbeddingPipeline:
     def __init__(self, model: Optional[EmbeddingModel] = None) -> None:
-        self.model = model or LocalEmbeddingModel()
+        if model is None:
+            try:
+                from src.embedding import LocalEmbeddingModel
+                model = LocalEmbeddingModel()
+            except ImportError:
+                raise ImportError(
+                    "No embedding model available. Either install sentence-transformers "
+                    "(`pip install -e '.[local]'`) or pass an EmbeddingModel explicitly."
+                )
+        self.model = model
 
     def embed_chunks(self, chunks: List) -> List[EmbeddedChunk]:
         texts = [c.text for c in chunks]
