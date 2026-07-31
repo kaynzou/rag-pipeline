@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Optional
@@ -52,7 +53,8 @@ pipeline: Optional[RAGPipeline] = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global pipeline
-    pipeline = RAGPipeline()
+    openai_key = os.environ.get("OPENAI_API_KEY")
+    pipeline = RAGPipeline(openai_api_key=openai_key)
     index_dir = Path(__file__).parent.parent / "data" / "index"
     if index_dir.exists():
         pipeline.load(str(index_dir))
@@ -122,6 +124,13 @@ def query_stream(request: QueryRequest):
 
     def event_generator():
         try:
+            if pipeline._reranker is None:
+                from src.reranker import CrossEncoderReranker
+                pipeline._reranker = CrossEncoderReranker()
+
+            if pipeline._generator is None:
+                pipeline._generator = Generator(api_key=pipeline._anthropic_api_key, model=pipeline._claude_model)
+
             hybrid_results = pipeline._hybrid.search(request.question)
             reranked = pipeline._reranker.rerank(request.question, hybrid_results, top_k=request.top_k)
             response = pipeline._generator.generate(request.question, reranked)

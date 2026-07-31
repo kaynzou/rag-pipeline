@@ -73,7 +73,7 @@ class RAGPipeline:
             candidates_per_method=10,
         )
 
-        self._reranker = CrossEncoderReranker()
+        self._reranker = None
         self._generator = None
         self._indexed = True
 
@@ -125,13 +125,17 @@ class RAGPipeline:
             candidates_per_method=10,
         )
 
-        self._reranker = CrossEncoderReranker()
+        self._reranker = None
         self._generator = None
         self._indexed = True
 
     def query(self, question: str, top_k: int = 5) -> RAGResponse:
         if not self._indexed:
             raise RuntimeError("Pipeline not indexed. Call index() or load() first.")
+
+        if self._reranker is None:
+            from src.reranker import CrossEncoderReranker
+            self._reranker = CrossEncoderReranker()
 
         if self._generator is None:
             self._generator = Generator(api_key=self._anthropic_api_key, model=self._claude_model)
