@@ -1,6 +1,5 @@
 [server]
 headless = true
-port = $PORT
 
 [theme]
 primaryColor = "#1f77b4"
