@@ -233,3 +233,12 @@ def query_stream(request: QueryRequest):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+@app.get("/")
+def root():
+    return {
+        "message": "RAG Pipeline Api is running",
+        "docs": "/docs",
+        "health": "/health",     
+        "ready": "/ready"
+        }
