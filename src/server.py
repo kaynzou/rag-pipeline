@@ -198,7 +198,7 @@ def query_stream(request: QueryRequest):
                 pipeline._reranker = CrossEncoderReranker()
 
             if pipeline._generator is None:
-                pipeline._generator = Generator(api_key=pipeline._anthropic_api_key, model=pipeline._claude_model)
+                pipeline._generator = Generator(api_key=pipeline._openai_api_key, model=pipeline._claude_model)
 
             hybrid_results = pipeline._hybrid.search(request.question)
             reranked = pipeline._reranker.rerank(request.question, hybrid_results, top_k=request.top_k)

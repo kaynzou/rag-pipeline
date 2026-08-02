@@ -56,9 +56,10 @@ class TestGenerator:
 
             gen = Generator.__new__(Generator)
             gen._client = mock_client
-            gen._model = "claude-3-haiku-20240307"
+            gen._model = "gpt-4o-mini"
             gen._max_tokens = 1024
             gen._temperature = 0.0
+            gen._relevance_threshold = 0.25
 
             response = gen.generate(query, reranked)
             assert isinstance(response, RAGResponse)
@@ -69,13 +70,39 @@ class TestGenerator:
 
             gen = Generator.__new__(Generator)
             gen._client = MockClient.return_value
-            gen._model = "claude-3-haiku-20240307"
+            gen._model = "gpt-4o-mini"
             gen._max_tokens = 1024
             gen._temperature = 0.0
+            gen._relevance_threshold = 0.25
 
             response = gen.generate("test", [])
             assert "I don't have enough information" in response.answer
             assert response.chunks_used == 0
+
+    def test_generate_relevance_threshold_blocks_irrelevant(self, setup):
+        chunks = [
+            RerankResult(
+                chunk_id=0,
+                text="Quantum computing uses qubits",
+                source="quantum.txt",
+                rerank_score=0.1,
+                bm25_score=0.0,
+                dense_score=0.1,
+                rrf_score=0.005,
+                start_token=0,
+                end_token=10,
+            )
+        ]
+
+        gen = Generator.__new__(Generator)
+        gen._model = "gpt-4o-mini"
+        gen._max_tokens = 1024
+        gen._temperature = 0.0
+        gen._relevance_threshold = 0.25
+
+        response = gen.generate("What is RAG?", chunks)
+        assert "I don't have enough information" in response.answer
+        assert response.chunks_used == 0
 
     def test_generate_has_sources(self, setup):
         hybrid, reranker = setup
@@ -92,9 +119,10 @@ class TestGenerator:
 
             gen = Generator.__new__(Generator)
             gen._client = mock_client
-            gen._model = "claude-3-haiku-20240307"
+            gen._model = "gpt-4o-mini"
             gen._max_tokens = 1024
             gen._temperature = 0.0
+            gen._relevance_threshold = 0.25
 
             response = gen.generate(query, reranked)
             assert len(response.sources) > 0
@@ -102,9 +130,10 @@ class TestGenerator:
 
     def test_generate_system_prompt_contains_constraints(self, setup):
         gen = Generator.__new__(Generator)
-        gen._model = "claude-3-haiku-20240307"
+        gen._model = "gpt-4o-mini"
         gen._max_tokens = 1024
         gen._temperature = 0.0
+        gen._relevance_threshold = 0.25
 
         system_prompt = gen._build_system_prompt()
         assert "ONLY the provided context" in system_prompt
@@ -113,9 +142,10 @@ class TestGenerator:
 
     def test_generate_user_prompt_format(self, setup):
         gen = Generator.__new__(Generator)
-        gen._model = "claude-3-haiku-20240307"
+        gen._model = "gpt-4o-mini"
         gen._max_tokens = 1024
         gen._temperature = 0.0
+        gen._relevance_threshold = 0.25
 
         chunks = [
             RerankResult(

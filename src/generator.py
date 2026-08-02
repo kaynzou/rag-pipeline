@@ -1,3 +1,10 @@
+"""
+Generation module for RAG pipeline.
+
+Implements grounded generation — prompts the LLM to answer using only
+the retrieved context and cite sources. Uses OpenAI by default.
+"""
+
 from __future__ import annotations
 
 import os
@@ -11,6 +18,7 @@ from src.reranker import RerankResult
 
 @dataclass
 class Source:
+    """A source reference for a generated answer."""
     chunk_id: int
     source_file: str
     text_preview: str
@@ -19,6 +27,7 @@ class Source:
 
 @dataclass
 class RAGResponse:
+    """Complete response from the RAG pipeline."""
     answer: str
     sources: List[Source]
     chunks_retrieved: int
@@ -27,23 +36,36 @@ class RAGResponse:
 
 
 class Generator:
+    """
+    Grounded generation using OpenAI.
+
+    Builds a prompt that constrains the model to answer only from
+    the provided context and cite sources.
+    """
+
     def __init__(
         self,
         api_key: Optional[str] = None,
         model: str = "gpt-4o-mini",
         max_tokens: int = 1024,
         temperature: float = 0.0,
+        relevance_threshold: float = 0.25,
     ) -> None:
         self._model = model
         self._max_tokens = max_tokens
         self._temperature = temperature
+        self._relevance_threshold = relevance_threshold
+        self._api_key = api_key or os.environ.get("OPENAI_API_KEY")
+        self._client: Optional[OpenAI] = None
 
-        self._client = Anthropic(api_key=api_key or os.environ.get("ANTHROPIC_API_KEY"))
-
-        if not (api_key or os.environ.get("ANTHROPIC_API_KEY")):
-            raise ValueError(
-                "Anthropic API key required. Pass api_key or set ANTHROPIC_API_KEY env var."
-            )
+    def _get_client(self) -> OpenAI:
+        if self._client is None:
+            self._client = OpenAI(api_key=self._api_key)
+            if not self._client.api_key:
+                raise ValueError(
+                    "OpenAI API key required. Pass api_key or set OPENAI_API_KEY env var."
+                )
+        return self._client
 
     def _build_system_prompt(self) -> str:
         return """You are a helpful assistant that answers questions using ONLY the provided context.
@@ -76,6 +98,16 @@ Answer:"""
         query: str,
         chunks: List[RerankResult],
     ) -> RAGResponse:
+        """
+        Generate an answer based on the query and retrieved chunks.
+
+        Args:
+            query: The user's question.
+            chunks: Reranked chunks to use as context.
+
+        Returns:
+            RAGResponse with the answer, sources, and metadata.
+        """
         if not chunks:
             return RAGResponse(
                 answer="I don't have enough information in the provided context to answer that question.",
@@ -85,10 +117,21 @@ Answer:"""
                 reranked_chunks=[],
             )
 
+        if chunks[0].rerank_score < self._relevance_threshold:
+            return RAGResponse(
+                answer="I don't have enough information in the provided context to answer that question.",
+                sources=[],
+                chunks_retrieved=len(chunks),
+                chunks_used=0,
+                reranked_chunks=chunks,
+            )
+
         system_prompt = self._build_system_prompt()
         user_prompt = self._build_user_prompt(query, chunks)
 
-        response = self._client.chat.completions.create(
+        client = self._get_client()
+
+        response = client.chat.completions.create(
             model=self._model,
             messages=[
                 {"role": "system", "content": system_prompt},
