@@ -1,10 +1,3 @@
-"""
-Streamlit frontend for the RAG pipeline.
-
-Connects to the FastAPI server and provides a chat interface
-for asking questions and seeing cited answers.
-"""
-
 import os
 import requests
 import streamlit as st
