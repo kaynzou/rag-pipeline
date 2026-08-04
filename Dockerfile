@@ -7,7 +7,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY pyproject.toml .
-RUN pip install --no-cache-dir -e ".[dev]"
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir -e ".[dev,local]"
 
 COPY src/ ./src/
 COPY data/ ./data/

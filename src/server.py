@@ -86,6 +86,70 @@ def ready():
     return ReadyResponse(ready=pipeline is not None and pipeline.indexed, indexed=pipeline.indexed if pipeline else False)
 
 
+class IndexRequest(BaseModel):
+    source: str = "sample_corpus"
+
+
+class IndexResponse(BaseModel):
+    indexed: bool
+    message: str
+
+
+@app.post("/index", response_model=IndexResponse)
+def index_corpus(request: IndexRequest):
+    global pipeline
+    if pipeline is None:
+        raise HTTPException(status_code=503, detail="Pipeline not initialized.")
+
+    if pipeline.indexed:
+        return IndexResponse(indexed=True, message="Already indexed.")
+
+    corpus_path = Path(__file__).parent.parent / "data" / "sample_corpus.txt"
+    if not corpus_path.exists():
+        raise HTTPException(status_code=404, detail=f"Corpus not found at {corpus_path}")
+
+    try:
+        text = corpus_path.read_text(encoding="utf-8")
+        pipeline.index(text, source=request.source)
+        logger.info("Indexed corpus from %s", corpus_path)
+        return IndexResponse(indexed=True, message="Corpus indexed successfully.")
+    except Exception as e:
+        logger.exception("Indexing failed")
+        raise HTTPException(status_code=500, detail=f"Indexing failed: {e}")
+
+
+class IndexRequest(BaseModel):
+    source: str = "sample_corpus"
+
+
+class IndexResponse(BaseModel):
+    indexed: bool
+    message: str
+
+
+@app.post("/index", response_model=IndexResponse)
+def index_corpus(request: IndexRequest):
+    global pipeline
+    if pipeline is None:
+        raise HTTPException(status_code=503, detail="Pipeline not initialized.")
+
+    if pipeline.indexed:
+        return IndexResponse(indexed=True, message="Already indexed.")
+
+    corpus_path = Path(__file__).parent.parent / "data" / "sample_corpus.txt"
+    if not corpus_path.exists():
+        raise HTTPException(status_code=404, detail=f"Corpus not found at {corpus_path}")
+
+    try:
+        text = corpus_path.read_text(encoding="utf-8")
+        pipeline.index(text, source=request.source)
+        logger.info("Indexed corpus from %s", corpus_path)
+        return IndexResponse(indexed=True, message="Corpus indexed successfully.")
+    except Exception as e:
+        logger.exception("Indexing failed")
+        raise HTTPException(status_code=500, detail=f"Indexing failed: {e}")
+
+
 @app.post("/query", response_model=QueryResponse)
 def query(request: QueryRequest):
     if pipeline is None or not pipeline.indexed:
@@ -134,7 +198,7 @@ def query_stream(request: QueryRequest):
                 pipeline._reranker = CrossEncoderReranker()
 
             if pipeline._generator is None:
-                pipeline._generator = Generator(api_key=pipeline._anthropic_api_key, model=pipeline._claude_model)
+                pipeline._generator = Generator(api_key=pipeline._openai_api_key, model=pipeline._claude_model)
 
             hybrid_results = pipeline._hybrid.search(request.question)
             reranked = pipeline._reranker.rerank(request.question, hybrid_results, top_k=request.top_k)
@@ -169,3 +233,12 @@ def query_stream(request: QueryRequest):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+@app.get("/")
+def root():
+    return {
+        "message": "RAG Pipeline Api is running",
+        "docs": "/docs",
+        "health": "/health",     
+        "ready": "/ready"
+        }

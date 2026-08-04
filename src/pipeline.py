@@ -20,7 +20,7 @@ class RAGPipeline:
         persist_dir: str = "data/index",
         openai_api_key: Optional[str] = None,
         anthropic_api_key: Optional[str] = None,
-        claude_model: str = "claude-3-haiku-20240307",
+        claude_model: str = "gpt-4o-mini",
     ) -> None:
         self._persist_dir = persist_dir
         self._openai_api_key = openai_api_key or os.environ.get("OPENAI_API_KEY")
