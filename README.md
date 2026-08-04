@@ -122,68 +122,6 @@ pytest tests/ -v
 ```bash
 docker compose up --build
 ```
-**Total: ~1,200 lines of production code + 2,000 lines of tests**
-
-## Key Concepts Learned
-
-### 1. Chunking
-- **Tokenization**: Text → tokens (what the LLM actually sees)
-- **Chunk size**: 256 tokens is the sweet spot for most use cases
-- **Overlap**: 10-20% of chunk size prevents context loss at boundaries
-- **Metadata**: `source`, `start_token`, `end_token` enable source attribution
-
-### 2. Embeddings
-- **Semantic space**: Similar meaning = close vectors
-- **Cosine similarity**: Direction-only comparison, ignores magnitude
-- **Model consistency**: Same model for corpus and query, always
-- **Normalization**: Unit-length vectors make search a single matrix multiply
-
-### 3. Vector Store
-- **Brute force**: O(N × dim) per query — fine for <100K chunks
-- **argpartition**: O(N) partial sort vs O(N log N) full sort
-- **Persistence**: Save vectors + metadata to disk for reuse
-- **Dimension validation**: Prevents silent corruption from model mismatches
-
-### 4. BM25
-- **TF saturation**: Diminishing returns as term frequency increases
-- **IDF**: Rare terms get boosted, common terms get zeroed out
-- **Length normalization**: Long documents are slightly penalized
-- **Parameters**: k1=1.2 (saturation), b=0.75 (length norm) — production defaults
-
-### 5. Hybrid Search
-- **Complementary signals**: BM25 (exact) + dense (semantic)
-- **RRF**: Rank-based fusion, no score normalization needed
-- **k=60**: Empirically optimal RRF constant
-- **No normalization**: BM25 scores (0-5) and cosine scores (0-1) are fused by rank, not magnitude
-
-### 6. Reranking
-- **Bi-encoder vs Cross-encoder**: Independent encoding vs joint attention
-- **Two-stage pattern**: Fast coarse retrieval → slow precise reranking
-- **Cross-attention**: Enables disambiguation ("bank" in "river bank" vs "bank account")
-- **Candidate set**: Only rerank top-20 from hybrid search, not all 100K
-
-### 7. Generation
-- **System prompt as constitution**: Behavioral constraints set before content
-- **Temperature=0.0**: Deterministic generation for factual Q&A
-- **Citations**: `[chunk_id]` ties every claim to a source
-- **Fallback**: "I don't have enough information..." for empty contexts
-
-### 8. Evaluation
-- **Precision@k**: Of retrieved chunks, how many were relevant?
-- **Recall@k**: Of all relevant chunks, how many were retrieved?
-- **MRR**: How high does the first relevant result appear?
-- **Faithfulness**: Are answer claims supported by context?
-- **Groundedness**: Do claims have valid citations?
-
-### 9. Serving
-- **POST /query**: JSON body for safe, flexible query input
-- **Pydantic validation**: Automatic 422 errors for invalid input
-- **Health vs Ready**: Process alive vs. pipeline loaded
-- **Lifespan**: Load index on startup, clean up on shutdown
-
-## Evaluation Metrics
-
-When you build a labeled question set (20-50 questions with known answers), you'll get numbers like:
 
 ```
 Retrieval:
