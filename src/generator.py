@@ -1,10 +1,3 @@
-"""
-Generation module for RAG pipeline.
-
-Implements grounded generation — prompts the LLM to answer using only
-the retrieved context and cite sources. Uses Groq (OpenAI-compatible API).
-"""
-
 from __future__ import annotations
 
 import os
@@ -18,7 +11,6 @@ from src.reranker import RerankResult
 
 @dataclass
 class Source:
-    """A source reference for a generated answer."""
     chunk_id: int
     source_file: str
     text_preview: str
@@ -27,7 +19,6 @@ class Source:
 
 @dataclass
 class RAGResponse:
-    """Complete response from the RAG pipeline."""
     answer: str
     sources: List[Source]
     chunks_retrieved: int
@@ -35,14 +26,7 @@ class RAGResponse:
     reranked_chunks: List[RerankResult]
 
 
-class Generator:
-    """
-    Grounded generation using Groq (OpenAI-compatible API).
-
-    Builds a prompt that constrains the model to answer only from
-    the provided context and cite sources.
-    """
-
+class Generator: 
     def __init__(
         self,
         api_key: Optional[str] = None,
@@ -101,16 +85,6 @@ Answer:"""
         query: str,
         chunks: List[RerankResult],
     ) -> RAGResponse:
-        """
-        Generate an answer based on the query and retrieved chunks.
-
-        Args:
-            query: The user's question.
-            chunks: Reranked chunks to use as context.
-
-        Returns:
-            RAGResponse with the answer, sources, and metadata.
-        """
         if not chunks:
             return RAGResponse(
                 answer="I don't have enough information in the provided context to answer that question.",
