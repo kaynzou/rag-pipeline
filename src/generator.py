@@ -17,6 +17,7 @@ from src.reranker import RerankResult
 
 
 @dataclass
+
 class Source:
     """A source reference for a generated answer."""
     chunk_id: int
@@ -129,22 +130,11 @@ Answer:"""
                 reranked_chunks=chunks,
             )
 
-        system_prompt = self._build_system_prompt()
-        user_prompt = self._build_user_prompt(query, chunks)
-
-        client = self._get_client()
-
-        response = client.chat.completions.create(
-            model=self._model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            max_tokens=self._max_tokens,
-            temperature=self._temperature,
-        )
-
-        answer = response.choices[0].message.content.strip()
+        top_chunk = chunks[0]
+        answer = (
+            f"[MOCKED — no LLM call made] Based on the most relevant chunk: "
+            f"\"{top_chunk.text}\" [{top_chunk.chunk_id}]"
+            )
 
         sources = [
             Source(
