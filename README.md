@@ -8,8 +8,8 @@ are transparent and testable.
 
 ## Live Demo
 
-- **Chat UI (Streamlit):** https://rag-pipeline-o0f1.onrender.com
-- **API (FastAPI):** https://rag-pipeline-1-y3x7.onrender.com/health
+- **Chat UI (Streamlit):** https://upgraded-trout-r4xwgr6w96qv3wpp6-8501.app.github.dev/
+- **API (FastAPI):** https://rag-pipeline-o0f1.onrender.com/
 
 > **Note:** Free-tier Render instances spin down after inactivity — the
 > first request may take 30-50 seconds to wake up.
