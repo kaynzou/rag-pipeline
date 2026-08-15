@@ -31,7 +31,7 @@ class Generator:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = "llama-3.3-70b-versatile",
+        model: str = "sarvam-105b",
         max_tokens: int = 1024,
         temperature: float = 0.0,
         relevance_threshold: float = 0.0,
@@ -40,18 +40,18 @@ class Generator:
         self._max_tokens = max_tokens
         self._temperature = temperature
         self._relevance_threshold = relevance_threshold
-        self._api_key = api_key or os.environ.get("OPENAI_API_KEY")
+        self._api_key = api_key or os.environ.get("SARVAM_API_KEY")
         self._client: Optional[OpenAI] = None
 
     def _get_client(self) -> OpenAI:
         if self._client is None:
             self._client = OpenAI(
                 api_key=self._api_key,
-                base_url="https://api.groq.com/openai/v1",
+                base_url="https://api.sarvam.ai/v1",
             )
             if not self._client.api_key:
                 raise ValueError(
-                    "Groq API key required. Pass api_key or set OPENAI_API_KEY env var."
+                    "Sarvam API key required. Pass api_key or set SARVAM_API_KEY env var."
                 )
         return self._client
 

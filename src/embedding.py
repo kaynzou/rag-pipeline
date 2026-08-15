@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List, Optional
 
 import numpy as np
+import requests
 
 try:
     from openai import OpenAI
@@ -69,6 +71,40 @@ class OpenAIEmbeddingModel(EmbeddingModel):
         return self.model
 
 
+class HFEmbeddingModel(EmbeddingModel):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model: str = "sentence-transformers/all-MiniLM-L6-v2",
+        dimensions: int = 384,
+    ) -> None:
+        self._api_key = api_key or os.environ.get("HF_TOKEN")
+        if not self._api_key:
+            raise ValueError("HF_TOKEN required for HFEmbeddingModel.")
+        self.model = model
+        self._dimension = dimensions
+        self._url = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{model}"
+
+    def embed(self, texts: List[str]) -> np.ndarray:
+        response = requests.post(
+            self._url,
+            headers={"Authorization": f"Bearer {self._api_key}"},
+            json={"inputs": texts, "options": {"wait_for_model": True}},
+            timeout=30,
+        )
+        response.raise_for_status()
+        vectors = np.array(response.json(), dtype=np.float32)
+        return vectors
+
+    @property
+    def dimension(self) -> int:
+        return self._dimension
+
+    @property
+    def model_name(self) -> str:
+        return self.model
+
+
 class LocalEmbeddingModel(EmbeddingModel):
     def __init__(self, model_name: str = "all-MiniLM-L6-v2") -> None:
         try:
@@ -111,14 +147,20 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 class EmbeddingPipeline:
     def __init__(self, model: Optional[EmbeddingModel] = None) -> None:
         if model is None:
-            try:
-                from src.embedding import LocalEmbeddingModel
-                model = LocalEmbeddingModel()
-            except ImportError:
-                raise ImportError(
-                    "No embedding model available. Either install sentence-transformers "
-                    "(`pip install -e '.[local]'`) or pass an EmbeddingModel explicitly."
-                )
+            hf_key = os.environ.get("HF_TOKEN")
+            openai_key = os.environ.get("OPENAI_API_KEY")
+            if hf_key:
+                model = HFEmbeddingModel(api_key=hf_key)
+            elif openai_key:
+                model = OpenAIEmbeddingModel(api_key=openai_key)
+            else:
+                try:
+                    model = LocalEmbeddingModel()
+                except ImportError:
+                    raise ImportError(
+                        "No embedding model available. Set HF_TOKEN or OPENAI_API_KEY, "
+                        "or install sentence-transformers (`pip install -e '.[local]'`)."
+                    )
         self.model = model
 
     def embed_chunks(self, chunks: List) -> List[EmbeddedChunk]:
