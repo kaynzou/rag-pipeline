@@ -10,3 +10,4 @@ pytest
 httpx
 python-multipart
 datasets
+python-dotenv
