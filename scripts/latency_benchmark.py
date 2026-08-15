@@ -45,6 +45,7 @@ def run_benchmark(
         ]
 
     pipeline = RAGPipeline(persist_dir=persist_dir)
+    pipeline.load(persist_dir)
     if not pipeline.indexed:
         raise RuntimeError(f"Pipeline not indexed at {persist_dir}")
 

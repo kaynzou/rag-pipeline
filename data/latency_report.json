@@ -1,0 +1,128 @@
+{
+  "num_queries": 20,
+  "p50_ms": 46.5,
+  "p70_ms": 55.43,
+  "p100_ms": 10010.74,
+  "results": [
+    {
+      "query": "What is BM25?",
+      "answer": "Query: What is BM25?\nTop retrieved context:\n- [2]  a classic keyword-based retrieval algorithm that ",
+      "latency_ms": 10011.04,
+      "guardrail_passed": true
+    },
+    {
+      "query": "How does RAG work?",
+      "answer": "Query: How does RAG work?\nTop retrieved context:\n- [0] Retrieval-Augmented Generation (RAG) is an AI",
+      "latency_ms": 75.77,
+      "guardrail_passed": true
+    },
+    {
+      "query": "What are embeddings?",
+      "answer": "Query: What are embeddings?\nTop retrieved context:\n- [1]  your documents directly impacts retrieval ",
+      "latency_ms": 428.8,
+      "guardrail_passed": true
+    },
+    {
+      "query": "Explain hybrid search.",
+      "answer": "Query: Explain hybrid search.\nTop retrieved context:\n- [2]  a classic keyword-based retrieval algori",
+      "latency_ms": 147.35,
+      "guardrail_passed": true
+    },
+    {
+      "query": "What is a cross-encoder?",
+      "answer": "Query: What is a cross-encoder?\nTop retrieved context:\n- [2]  a classic keyword-based retrieval algo",
+      "latency_ms": 221.38,
+      "guardrail_passed": true
+    },
+    {
+      "query": "How do you evaluate RAG?",
+      "answer": "Query: How do you evaluate RAG?\nTop retrieved context:\n- [3] -thought and instruction-following help",
+      "latency_ms": 46.5,
+      "guardrail_passed": true
+    },
+    {
+      "query": "What is chunking?",
+      "answer": "Query: What is chunking?\nTop retrieved context:\n- [1]  your documents directly impacts retrieval qua",
+      "latency_ms": 41.95,
+      "guardrail_passed": true
+    },
+    {
+      "query": "What is a vector store?",
+      "answer": "I don't have enough information in the provided context to answer that question.",
+      "latency_ms": 43.33,
+      "guardrail_passed": false
+    },
+    {
+      "query": "What is reranking?",
+      "answer": "Query: What is reranking?\nTop retrieved context:\n- [2]  a classic keyword-based retrieval algorithm ",
+      "latency_ms": 44.84,
+      "guardrail_passed": true
+    },
+    {
+      "query": "What is the purpose of a generator in RAG?",
+      "answer": "Query: What is the purpose of a generator in RAG?\nTop retrieved context:\n- [0] Retrieval-Augmented G",
+      "latency_ms": 225.24,
+      "guardrail_passed": true
+    },
+    {
+      "query": "What is BM25?",
+      "answer": "Query: What is BM25?\nTop retrieved context:\n- [2]  a classic keyword-based retrieval algorithm that ",
+      "latency_ms": 42.79,
+      "guardrail_passed": true
+    },
+    {
+      "query": "How does RAG work?",
+      "answer": "Query: How does RAG work?\nTop retrieved context:\n- [0] Retrieval-Augmented Generation (RAG) is an AI",
+      "latency_ms": 43.16,
+      "guardrail_passed": true
+    },
+    {
+      "query": "What are embeddings?",
+      "answer": "Query: What are embeddings?\nTop retrieved context:\n- [1]  your documents directly impacts retrieval ",
+      "latency_ms": 42.94,
+      "guardrail_passed": true
+    },
+    {
+      "query": "Explain hybrid search.",
+      "answer": "Query: Explain hybrid search.\nTop retrieved context:\n- [2]  a classic keyword-based retrieval algori",
+      "latency_ms": 44.97,
+      "guardrail_passed": true
+    },
+    {
+      "query": "What is a cross-encoder?",
+      "answer": "Query: What is a cross-encoder?\nTop retrieved context:\n- [2]  a classic keyword-based retrieval algo",
+      "latency_ms": 45.03,
+      "guardrail_passed": true
+    },
+    {
+      "query": "How do you evaluate RAG?",
+      "answer": "Query: How do you evaluate RAG?\nTop retrieved context:\n- [3] -thought and instruction-following help",
+      "latency_ms": 46.45,
+      "guardrail_passed": true
+    },
+    {
+      "query": "What is chunking?",
+      "answer": "Query: What is chunking?\nTop retrieved context:\n- [1]  your documents directly impacts retrieval qua",
+      "latency_ms": 46.59,
+      "guardrail_passed": true
+    },
+    {
+      "query": "What is a vector store?",
+      "answer": "I don't have enough information in the provided context to answer that question.",
+      "latency_ms": 46.68,
+      "guardrail_passed": false
+    },
+    {
+      "query": "What is reranking?",
+      "answer": "Query: What is reranking?\nTop retrieved context:\n- [2]  a classic keyword-based retrieval algorithm ",
+      "latency_ms": 46.76,
+      "guardrail_passed": true
+    },
+    {
+      "query": "What is the purpose of a generator in RAG?",
+      "answer": "Query: What is the purpose of a generator in RAG?\nTop retrieved context:\n- [0] Retrieval-Augmented G",
+      "latency_ms": 46.56,
+      "guardrail_passed": true
+    }
+  ]
+}
