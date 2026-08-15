@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
-from src.chunking import TextSplitter, Chunk
+from src.chunking import TextSplitter, Chunk, MultiStrategyChunker
 from src.embedding import EmbeddingPipeline, OpenAIEmbeddingModel
 from src.bm25 import BM25Index
 from src.vector_store import VectorStore
 from src.hybrid_search import HybridSearch
 from src.generator import Generator, RAGResponse
+
+logger = logging.getLogger(__name__)
 
 
 class RAGPipeline:
@@ -21,11 +24,13 @@ class RAGPipeline:
         openai_api_key: Optional[str] = None,
         anthropic_api_key: Optional[str] = None,
         claude_model: str = "gpt-4o-mini",
+        chunking_strategies: Optional[List[str]] = None,
     ) -> None:
         self._persist_dir = persist_dir
         self._openai_api_key = openai_api_key or os.environ.get("OPENAI_API_KEY")
         self._anthropic_api_key = anthropic_api_key or os.environ.get("ANTHROPIC_API_KEY")
         self._claude_model = claude_model
+        self._chunking_strategies = chunking_strategies or ["fixed"]
 
         self._setup_models()
         self._setup_components()
@@ -59,6 +64,51 @@ class RAGPipeline:
 
     def index(self, text: str, source: str = "corpus") -> None:
         chunks = self._chunker.split(text, source=source)
+        embedded = self._pipeline.embed_chunks(chunks)
+
+        self._vector_store = VectorStore(
+            dimension=self._encoder.dimension,
+            model_name=getattr(self._encoder, "model_name", "local"),
+        )
+        self._vector_store.add(embedded)
+
+        self._bm25 = BM25Index()
+        self._bm25.build(chunks)
+
+        self._hybrid = HybridSearch(
+            bm25_index=self._bm25,
+            vector_store=self._vector_store,
+            encoder=self._encoder,
+            top_k=10,
+            candidates_per_method=10,
+        )
+
+        self._reranker = None
+        self._generator = None
+        self._indexed = True
+
+        Path(self._persist_dir).mkdir(parents=True, exist_ok=True)
+        self._vector_store.save(self._persist_dir)
+        with open(Path(self._persist_dir) / "bm25_chunks.json", "w") as f:
+            json.dump(
+                [
+                    {
+                        "text": c.text,
+                        "source": c.source,
+                        "start_token": c.start_token,
+                        "end_token": c.end_token,
+                        "metadata": c.metadata,
+                    }
+                    for c in chunks
+                ],
+                f,
+                indent=2,
+            )
+
+    def index_with_strategies(self, text: str, source: str = "corpus", strategies: Optional[List[str]] = None) -> None:
+        strategies = strategies or self._chunking_strategies
+        chunker = MultiStrategyChunker(strategies=strategies)
+        chunks = chunker.chunk(text, source=source)
         embedded = self._pipeline.embed_chunks(chunks)
 
         self._vector_store = VectorStore(

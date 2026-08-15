@@ -7,3 +7,6 @@ openai
 tiktoken
 numpy
 pytest
+httpx
+python-multipart
+datasets

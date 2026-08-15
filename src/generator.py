@@ -109,6 +109,25 @@ Answer:"""
             f"[MOCKED — no LLM call made] Based on the most relevant chunk: "
             f"\"{top_chunk.text}\" [{top_chunk.chunk_id}]"
             )
+        try:
+            system_prompt = self._build_system_prompt()
+            user_prompt = self._build_user_prompt(query, chunks)
+
+            client = self._get_client()
+
+            response = client.chat.completions.create(
+                model=self._model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                max_tokens=self._max_tokens,
+                temperature=self._temperature,
+            )
+
+            answer = response.choices[0].message.content.strip()
+        except Exception as e:
+            return self.generate_fallback(query, chunks)
 
         sources = [
             Source(
@@ -120,6 +139,42 @@ Answer:"""
             for c in chunks
         ]
 
+        return RAGResponse(
+            answer=answer,
+            sources=sources,
+            chunks_retrieved=len(chunks),
+            chunks_used=len(chunks),
+            reranked_chunks=chunks,
+        )
+
+    def generate_fallback(self, query: str, chunks: List[RerankResult]) -> RAGResponse:
+        """Return a context-grounded answer without calling an external LLM."""
+        if not chunks:
+            return RAGResponse(
+                answer="I don't have enough information in the provided context to answer that question.",
+                sources=[],
+                chunks_retrieved=0,
+                chunks_used=0,
+                reranked_chunks=[],
+            )
+
+        lines = [f"Query: {query}", "Top retrieved context:"]
+        for c in chunks[:3]:
+            lines.append(f"- [{c.chunk_id}] {c.text[:220]}")
+        lines.append("")
+        lines.append("Answer based on retrieved context only:")
+        lines.append(f"The most relevant result is chunk {chunks[0].chunk_id} with score {chunks[0].rerank_score:.3f}.")
+        answer = "\n".join(lines)
+
+        sources = [
+            Source(
+                chunk_id=c.chunk_id,
+                source_file=c.source,
+                text_preview=c.text[:100] + "..." if len(c.text) > 100 else c.text,
+                rerank_score=c.rerank_score,
+            )
+            for c in chunks
+        ]
         return RAGResponse(
             answer=answer,
             sources=sources,

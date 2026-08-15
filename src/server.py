@@ -7,12 +7,17 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
 from contextlib import asynccontextmanager
 from fastapi.responses import StreamingResponse
 
 from src.pipeline import RAGPipeline
+from src.harness import RAGHarness, LatencyTracker
+from src.stt import STTHarness
+
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -36,6 +41,10 @@ class QueryResponse(BaseModel):
     chunks_retrieved: int
     chunks_used: int
     latency_ms: float
+    guardrail_passed: bool
+    guardrail_reason: Optional[str] = None
+    guardrail_category: Optional[str] = None
+    fallback: bool = False
 
 
 class HealthResponse(BaseModel):
@@ -47,12 +56,45 @@ class ReadyResponse(BaseModel):
     indexed: bool
 
 
+class LatencyResponse(BaseModel):
+    p50_ms: float
+    p70_ms: float
+    p100_ms: float
+    num_queries: int
+
+
+class IndexRequest(BaseModel):
+    source: str = "sample_corpus"
+    strategies: Optional[list[str]] = None
+
+
+class IndexResponse(BaseModel):
+    indexed: bool
+    message: str
+
+
+class VoiceQueryResponse(BaseModel):
+    transcript: str
+    stt_latency_ms: float
+    answer: str
+    sources: list[SourceResponse]
+    chunks_retrieved: int
+    chunks_used: int
+    latency_ms: float
+    guardrail_passed: bool
+    guardrail_reason: Optional[str] = None
+    guardrail_category: Optional[str] = None
+    fallback: bool = False
+
+
 pipeline: Optional[RAGPipeline] = None
+harness: Optional[RAGHarness] = None
+stt_harness: Optional[STTHarness] = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global pipeline
+    global pipeline, harness, stt_harness
     openai_key = os.environ.get("OPENAI_API_KEY")
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
     try:
@@ -61,17 +103,21 @@ async def lifespan(app: FastAPI):
         if index_dir.exists():
             pipeline.load(str(index_dir))
             logger.info("Pipeline loaded from %s", index_dir)
+        harness = RAGHarness(pipeline=pipeline)
+        stt_harness = STTHarness()
     except ImportError as e:
         logger.warning("Pipeline not initialized: %s", e)
         pipeline = None
     yield
     pipeline = None
+    harness = None
+    stt_harness = None
 
 
 app = FastAPI(
     title="RAG Pipeline API",
     description="Retrieval-Augmented Generation pipeline built from scratch.",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -86,18 +132,22 @@ def ready():
     return ReadyResponse(ready=pipeline is not None and pipeline.indexed, indexed=pipeline.indexed if pipeline else False)
 
 
-class IndexRequest(BaseModel):
-    source: str = "sample_corpus"
-
-
-class IndexResponse(BaseModel):
-    indexed: bool
-    message: str
+@app.get("/latency", response_model=LatencyResponse)
+def latency():
+    if harness is None:
+        raise HTTPException(status_code=503, detail="Harness not initialized.")
+    tracker: LatencyTracker = harness.latency
+    return LatencyResponse(
+        p50_ms=round(tracker.p50, 2),
+        p70_ms=round(tracker.p70, 2),
+        p100_ms=round(tracker.p100, 2),
+        num_queries=tracker.count,
+    )
 
 
 @app.post("/index", response_model=IndexResponse)
 def index_corpus(request: IndexRequest):
-    global pipeline
+    global pipeline, harness
     if pipeline is None:
         raise HTTPException(status_code=503, detail="Pipeline not initialized.")
 
@@ -110,40 +160,12 @@ def index_corpus(request: IndexRequest):
 
     try:
         text = corpus_path.read_text(encoding="utf-8")
-        pipeline.index(text, source=request.source)
+        if request.strategies:
+            pipeline.index_with_strategies(text, source=request.source, strategies=request.strategies)
+        else:
+            pipeline.index(text, source=request.source)
         logger.info("Indexed corpus from %s", corpus_path)
-        return IndexResponse(indexed=True, message="Corpus indexed successfully.")
-    except Exception as e:
-        logger.exception("Indexing failed")
-        raise HTTPException(status_code=500, detail=f"Indexing failed: {e}")
-
-
-class IndexRequest(BaseModel):
-    source: str = "sample_corpus"
-
-
-class IndexResponse(BaseModel):
-    indexed: bool
-    message: str
-
-
-@app.post("/index", response_model=IndexResponse)
-def index_corpus(request: IndexRequest):
-    global pipeline
-    if pipeline is None:
-        raise HTTPException(status_code=503, detail="Pipeline not initialized.")
-
-    if pipeline.indexed:
-        return IndexResponse(indexed=True, message="Already indexed.")
-
-    corpus_path = Path(__file__).parent.parent / "data" / "sample_corpus.txt"
-    if not corpus_path.exists():
-        raise HTTPException(status_code=404, detail=f"Corpus not found at {corpus_path}")
-
-    try:
-        text = corpus_path.read_text(encoding="utf-8")
-        pipeline.index(text, source=request.source)
-        logger.info("Indexed corpus from %s", corpus_path)
+        harness = RAGHarness(pipeline=pipeline)
         return IndexResponse(indexed=True, message="Corpus indexed successfully.")
     except Exception as e:
         logger.exception("Indexing failed")
@@ -152,23 +174,13 @@ def index_corpus(request: IndexRequest):
 
 @app.post("/query", response_model=QueryResponse)
 def query(request: QueryRequest):
-    if pipeline is None or not pipeline.indexed:
+    if pipeline is None or not pipeline.indexed or harness is None:
         raise HTTPException(status_code=503, detail="Pipeline not ready. Index not loaded.")
 
-    start = time.perf_counter()
-    try:
-        response = pipeline.query(request.question, top_k=request.top_k)
-    except ValueError as e:
-        logger.exception("Pipeline configuration or data error")
-        raise HTTPException(status_code=500, detail="Internal server error")
-    except Exception as e:
-        logger.exception("Pipeline error")
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-    latency_ms = (time.perf_counter() - start) * 1000
+    result = harness.query(request.question, top_k=request.top_k)
 
     return QueryResponse(
-        answer=response.answer,
+        answer=result.answer,
         sources=[
             SourceResponse(
                 chunk_id=s.chunk_id,
@@ -176,11 +188,15 @@ def query(request: QueryRequest):
                 text_preview=s.text_preview,
                 rerank_score=s.rerank_score,
             )
-            for s in response.sources
+            for s in result.sources
         ],
-        chunks_retrieved=response.chunks_retrieved,
-        chunks_used=response.chunks_used,
-        latency_ms=round(latency_ms, 2),
+        chunks_retrieved=result.chunks_retrieved,
+        chunks_used=result.chunks_used,
+        latency_ms=round(result.latency.total_ms, 2),
+        guardrail_passed=result.guardrail_passed,
+        guardrail_reason=result.guardrail_reason,
+        guardrail_category=result.guardrail_category,
+        fallback=result.fallback,
     )
 
 
@@ -193,21 +209,14 @@ def query_stream(request: QueryRequest):
 
     def event_generator():
         try:
-            if pipeline._reranker is None:
-                from src.reranker import CrossEncoderReranker
-                pipeline._reranker = CrossEncoderReranker()
-
-            if pipeline._generator is None:
-                pipeline._generator = Generator(api_key=pipeline._openai_api_key, model=pipeline._claude_model)
-
-            hybrid_results = pipeline._hybrid.search(request.question)
-            reranked = pipeline._reranker.rerank(request.question, hybrid_results, top_k=request.top_k)
-            response = pipeline._generator.generate(request.question, reranked)
+            result = harness.query(request.question, top_k=request.top_k) if harness else None
+            if result is None:
+                raise RuntimeError("Harness not available.")
 
             latency_ms = (time.perf_counter() - start) * 1000
 
             payload = {
-                "answer": response.answer,
+                "answer": result.answer,
                 "sources": [
                     {
                         "chunk_id": s.chunk_id,
@@ -215,11 +224,15 @@ def query_stream(request: QueryRequest):
                         "text_preview": s.text_preview,
                         "rerank_score": s.rerank_score,
                     }
-                    for s in response.sources
+                    for s in result.sources
                 ],
-                "chunks_retrieved": len(hybrid_results),
-                "chunks_used": len(reranked),
+                "chunks_retrieved": result.chunks_retrieved,
+                "chunks_used": result.chunks_used,
                 "latency_ms": round(latency_ms, 2),
+                "guardrail_passed": result.guardrail_passed,
+                "guardrail_reason": result.guardrail_reason,
+                "guardrail_category": result.guardrail_category,
+                "fallback": result.fallback,
             }
 
             yield f"data: {json.dumps(payload)}\n\n"
@@ -234,11 +247,112 @@ def query_stream(request: QueryRequest):
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
+
+@app.post("/voice/query", response_model=VoiceQueryResponse)
+async def voice_query(file: UploadFile = File(...), top_k: int = 5):
+    if pipeline is None or not pipeline.indexed or harness is None or stt_harness is None:
+        raise HTTPException(status_code=503, detail="Pipeline not ready.")
+
+    audio_bytes = await file.read()
+    stt_result = await stt_harness.transcribe_with_retry(audio_bytes)
+
+    if not stt_result.success:
+        raise HTTPException(status_code=500, detail=f"STT failed: {stt_result.error}")
+
+    result = harness.query(stt_result.text, top_k=top_k)
+
+    return VoiceQueryResponse(
+        transcript=stt_result.text,
+        stt_latency_ms=stt_result.latency_ms,
+        answer=result.answer,
+        sources=[
+            SourceResponse(
+                chunk_id=s.chunk_id,
+                source_file=s.source_file,
+                text_preview=s.text_preview,
+                rerank_score=s.rerank_score,
+            )
+            for s in result.sources
+        ],
+        chunks_retrieved=result.chunks_retrieved,
+        chunks_used=result.chunks_used,
+        latency_ms=round(result.latency.total_ms, 2),
+        guardrail_passed=result.guardrail_passed,
+        guardrail_reason=result.guardrail_reason,
+        guardrail_category=result.guardrail_category,
+        fallback=result.fallback,
+    )
+
+
+@app.post("/voice/query-debug")
+async def voice_query_debug(file: UploadFile = File(...), top_k: int = 5):
+    if pipeline is None or not pipeline.indexed or harness is None or stt_harness is None:
+        raise HTTPException(status_code=503, detail="Pipeline not ready.")
+
+    audio_bytes = await file.read()
+    stt_result = await stt_harness.transcribe_with_retry(audio_bytes)
+
+    if not stt_result.success:
+        return {
+            "transcript": "",
+            "stt_latency_ms": stt_result.latency_ms,
+            "stt_error": stt_result.error,
+            "answer": f"STT failed: {stt_result.error}",
+            "sources": [],
+            "chunks_retrieved": 0,
+            "chunks_used": 0,
+            "latency_ms": 0.0,
+            "guardrail_passed": False,
+            "fallback": True,
+        }
+
+    try:
+        result = harness.query(stt_result.text, top_k=top_k)
+    except Exception as e:
+        return {
+            "transcript": stt_result.text,
+            "stt_latency_ms": stt_result.latency_ms,
+            "stt_error": None,
+            "answer": f"RAG error: {e}",
+            "sources": [],
+            "chunks_retrieved": 0,
+            "chunks_used": 0,
+            "latency_ms": 0.0,
+            "guardrail_passed": False,
+            "fallback": True,
+        }
+
+    return {
+        "transcript": stt_result.text,
+        "stt_latency_ms": stt_result.latency_ms,
+        "stt_error": None,
+        "answer": result.answer,
+        "sources": [
+            {
+                "chunk_id": s.chunk_id,
+                "source_file": s.source_file,
+                "text_preview": s.text_preview,
+                "rerank_score": s.rerank_score,
+            }
+            for s in result.sources
+        ],
+        "chunks_retrieved": result.chunks_retrieved,
+        "chunks_used": result.chunks_used,
+        "latency_ms": round(result.latency.total_ms, 2),
+        "guardrail_passed": result.guardrail_passed,
+        "guardrail_reason": result.guardrail_reason,
+        "guardrail_category": result.guardrail_category,
+        "fallback": result.fallback,
+    }
+
+
 @app.get("/")
 def root():
     return {
-        "message": "RAG Pipeline Api is running",
+        "message": "RAG Pipeline API is running",
         "docs": "/docs",
-        "health": "/health",     
-        "ready": "/ready"
-        }
+        "health": "/health",
+        "ready": "/ready",
+        "latency": "/latency",
+        "voice": "/voice/query",
+    }

@@ -1,7 +1,7 @@
 [project]
 name = "rag-pipeline"
-version = "0.1.0"
-description = "RAG pipeline built from scratch"
+version = "0.2.0"
+description = "Voice-enabled RAG pipeline built from scratch"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -10,6 +10,8 @@ dependencies = [
     "fastapi>=0.100.0",
     "uvicorn>=0.23.0",
     "openai>=1.0.0",
+    "httpx>=0.25.0",
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]
@@ -19,4 +21,7 @@ dev = [
 ]
 local = [
     "sentence-transformers>=2.2.0",
+]
+ingest = [
+    "datasets>=2.14.0",
 ]

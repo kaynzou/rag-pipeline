@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from src.pipeline import RAGPipeline, RAGResponse
 from src.generator import Source
+from src.harness import RAGHarness, HarnessResponse
 from src.server import app
 
 
@@ -24,6 +25,21 @@ def mock_pipeline(monkeypatch):
 
     import src.server as server_mod
     monkeypatch.setattr(server_mod, "pipeline", pipeline)
+
+    harness = MagicMock(spec=RAGHarness)
+    harness.query.return_value = HarnessResponse(
+        answer="BM25 is a keyword scoring algorithm [0].",
+        sources=[
+            Source(chunk_id=0, source_file="a.txt", text_preview="BM25...", rerank_score=0.9),
+            Source(chunk_id=1, source_file="b.txt", text_preview="RAG...", rerank_score=0.7),
+        ],
+        chunks_retrieved=10,
+        chunks_used=5,
+        latency=MagicMock(),
+        guardrail_passed=True,
+        fallback=False,
+    )
+    monkeypatch.setattr(server_mod, "harness", harness)
     return pipeline
 
 
@@ -56,6 +72,7 @@ class TestServer:
         assert "BM25" in data["answer"]
         assert len(data["sources"]) == 2
         assert data["latency_ms"] > 0
+        assert "guardrail_passed" in data
 
     def test_query_validates_input(self):
         client = TestClient(app)
