@@ -20,3 +20,6 @@ dist/
 .agents/
 .claude/
 msmarco_hi_sample.jsonl
+test_voice.wav
+test_voice2.wav
+scripts/build_msmarco_corpus.py
