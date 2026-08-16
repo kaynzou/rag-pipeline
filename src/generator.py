@@ -32,7 +32,7 @@ class Generator:
         self,
         api_key: Optional[str] = None,
         model: str = "sarvam-105b",
-        max_tokens: int = 1024,
+        max_tokens: int = 2048,
         temperature: float = 0.0,
         relevance_threshold: float = 0.0,
     ) -> None:
@@ -122,6 +122,7 @@ Answer:"""
                     {"role": "user", "content": user_prompt},
                 ],
                 max_tokens=self._max_tokens,
+                reasoning_effort="low",
                 temperature=self._temperature,
             )
 

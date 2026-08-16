@@ -23,13 +23,15 @@ class RAGPipeline:
         persist_dir: str = "data/index",
         openai_api_key: Optional[str] = None,
         anthropic_api_key: Optional[str] = None,
-        claude_model: str = "gpt-4o-mini",
+        sarvam_model: str = "sarvam-105b",
+        sarvam_api_key: Optional[str] = None,
         chunking_strategies: Optional[List[str]] = None,
     ) -> None:
         self._persist_dir = persist_dir
         self._openai_api_key = openai_api_key or os.environ.get("OPENAI_API_KEY")
         self._anthropic_api_key = anthropic_api_key or os.environ.get("ANTHROPIC_API_KEY")
-        self._claude_model = claude_model
+        self._sarvam_model = sarvam_model
+        self._sarvam_api_key = sarvam_api_key or os.environ.get("SARVAM_API_KEY")
         self._chunking_strategies = chunking_strategies or ["fixed"]
 
         self._setup_models()
@@ -197,7 +199,7 @@ class RAGPipeline:
                 self._reranker = None
 
         if self._generator is None:
-            self._generator = Generator(api_key=self._anthropic_api_key, model=self._claude_model)
+            self._generator = Generator(api_key=self._sarvam_api_key, model=self._sarvam_model)
 
         hybrid_results = self._hybrid.search(question)
 
