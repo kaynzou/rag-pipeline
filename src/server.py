@@ -254,7 +254,7 @@ async def voice_query(file: UploadFile = File(...), top_k: int = 5):
         raise HTTPException(status_code=503, detail="Pipeline not ready.")
 
     audio_bytes = await file.read()
-    stt_result = await stt_harness.transcribe_with_retry(audio_bytes)
+    stt_result = await stt_harness.transcribe_with_retry(audio_bytes, language_code="hi-IN")
 
     if not stt_result.success:
         raise HTTPException(status_code=500, detail=f"STT failed: {stt_result.error}")
@@ -290,7 +290,7 @@ async def voice_query_debug(file: UploadFile = File(...), top_k: int = 5):
         raise HTTPException(status_code=503, detail="Pipeline not ready.")
 
     audio_bytes = await file.read()
-    stt_result = await stt_harness.transcribe_with_retry(audio_bytes)
+    stt_result = await stt_harness.transcribe_with_retry(audio_bytes, language_code="hi-IN")
 
     if not stt_result.success:
         return {
