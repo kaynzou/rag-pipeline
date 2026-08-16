@@ -19,3 +19,4 @@ dist/
 *.log
 .agents/
 .claude/
+msmarco_hi_sample.jsonl
